@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>培门冬酶相关胰腺炎风险预测模型</title>
+<style>
+    :root {
+        --primary: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg: #f1f5f9;
+        --card: rgba(255, 255, 255, 0.88);
+        --text-main: #1e293b;
+        --text-sub: #64748b;
+        --border-light: #e2e8f0;
+        --radius: 16px;
+        --normal-green: #22c55e;
+        --abnormal-gray: #cbd5e1;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', 'Inter', system-ui, 'Microsoft YaHei', sans-serif;
+    }
+
+    body {
+        background: var(--bg);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .calculator {
+        background: var(--card);
+        backdrop-filter: blur(12px);
+        border-radius: 28px;
+        box-shadow: 0 25px 30px -12px rgba(0,0,0,0.08), 0 8px 12px -6px rgba(0,0,0,0.02);
+        border: 1px solid rgba(255,255,255,0.45);
+        width: 100%;
+        max-width: 540px;
+        padding: 36px 34px 32px;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .header h1 {
+        color: var(--text-main);
+        font-size: 27px;
+        font-weight: 650;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+    }
+
+    .header p {
+        color: var(--text-sub);
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .input-group {
+        margin-bottom: 24px;
+    }
+
+    .input-label {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--text-main);
+        font-weight: 550;
+        font-size: 15px;
+        letter-spacing: 0.2px;
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 28px;
+        padding: 4px 0;
+    }
+
+    .radio-option {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        color: var(--text-main);
+        font-weight: 450;
+        font-size: 15px;
+    }
+
+    .radio-option input[type="radio"] {
+        margin-right: 8px;
+        accent-color: var(--primary);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .slider-input-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .visual-slider {
+        flex: 1 1 160px;
+        position: relative;
+        height: 40px;
+        display: flex;
+        align-items: center;
+    }
+
+    .visual-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 6px;
+        position: relative;
+        overflow: visible;
+    }
+
+    /* 分段轨道的基座 */
+    .track-segment {
+        position: absolute;
+        top: 0;
+        height: 100%;
+    }
+
+    .track-abnormal-left {
+        background: var(--abnormal-gray);
+        border-radius: 6px 0 0 6px;
+    }
+
+    .track-normal {
+        background: var(--normal-green);
+    }
+
+    .track-abnormal-right {
+        background: var(--abnormal-gray);
+        border-radius: 0 6px 6px 0;
+    }
+
+    .visual-thumb {
+        position: absolute;
+        top: 50%;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--primary);
+        border: 3px solid white;
+        box-shadow: 0 4px 12px rgba(37,99,235,0.25);
+        transform: translate(-50%, -51%);
+        pointer-events: none;
+        transition: left 0.08s ease;
+        z-index: 3;
+    }
+
+    .number-input {
+        width: 84px;
+        padding: 10px 8px;
+        border: 1.5px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 530;
+        color: var(--text-main);
+        background: white;
+        text-align: center;
+        outline: none;
+        transition: border 0.2s, box-shadow 0.2s;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.015);
+    }
+
+    .number-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+
+    .number-input:hover {
+        border-color: #93c5fd;
+    }
+
+    .unit {
+        color: var(--text-sub);
+        font-size: 13px;
+        font-weight: 430;
+        min-width: 58px;
+    }
+
+    .normal-range {
+        font-size: 12px;
+        color: var(--text-sub);
+        margin-top: 7px;
+        margin-left: 4px;
+        opacity: 0.73;
+    }
+
+    .normal-range .green-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--normal-green);
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+
+    .result-box {
+        background: linear-gradient(145deg, #f2f9ff, #e3f0fc);
+        border-radius: var(--radius);
+        padding: 24px 20px;
+        text-align: center;
+        margin: 30px 0 24px;
+        border: 1px solid rgba(37,99,235,0.065);
+    }
+
+    .prob-value {
+        font-size: 47px;
+        font-weight: 740;
+        color: var(--primary);
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+    }
+
+    .risk-bar {
+        height: 10px;
+        background: #e2e8f0;
+        border-radius: 6px;
+        margin: 18px 0 14px;
+        overflow: hidden;
+    }
+
+    .risk-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 6px;
+        transition: width 0.2s ease, background 0.25s;
+    }
+
+    .risk-text {
+        font-size: 20px;
+        font-weight: 590;
+        color: var(--text-main);
+    }
+
+    .buttons {
+        display: flex;
+        gap: 14px;
+        margin-top: 4px;
+    }
+
+    button {
+        flex: 1;
+        padding: 14px 8px;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 575;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        letter-spacing: 0.2px;
+    }
+
+    .reset-btn {
+        background: #eef2f6;
+        color: var(--text-main);
+    }
+
+    .reset-btn:hover {
+        background: #dce2ea;
+        transform: scale(0.97);
+    }
+
+    .copy-btn {
+        background: var(--primary);
+        color: white;
+        box-shadow: 0 4px 8px rgba(37,99,235,0.15);
+    }
+
+    .copy-btn:hover {
+        background: #1d4ed8;
+        transform: translateY(-1.5px);
+        box-shadow: 0 8px 16px rgba(37,99,235,0.18);
+    }
+
+    .footer {
+        text-align: center;
+        margin-top: 24px;
+        color: var(--text-sub);
+        font-size: 12px;
+        opacity: 0.63;
+        border-top: 1px solid rgba(0,0,0,0.028);
+        padding-top: 18px;
+    }
+
+    @media (max-width: 490px) {
+        .calculator { padding: 24px 18px; }
+        .header h1 { font-size: 23px; }
+        .slider-input-row { gap: 10px; }
+        .number-input { width: 78px; font-size: 15px; }
+        .prob-value { font-size: 39px; }
+        .unit { min-width: 50px; font-size: 12px; }
+    }
+</style>
+</head>
+<body>
+<div class="calculator">
+    <div class="header">
+        <h1>培门冬酶相关胰腺炎风险预测模型</h1>
+        <p>基于 Logistic 回归模型预测培门冬酶相关胰腺炎风险</p>
+    </div>
+
+    <!-- 1. AAP病史 -->
+    <div class="input-group">
+        <label class="input-label">1. 有无 AAP 病史</label>
+        <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="x10" value="0" checked> 无</label>
+            <label class="radio-option"><input type="radio" name="x10" value="1"> 有</label>
+        </div>
+    </div>
+
+    <!-- 2. 白蛋白 -->
+    <div class="input-group">
+        <label class="input-label">2. 白蛋白 (Albumin)</label>
+        <div class="slider-input-row">
+            <div class="visual-slider">
+                <div class="visual-track" id="track-x11">
+                    <div class="track-segment track-abnormal-left" id="seg-left-x11"></div>
+                    <div class="track-segment track-normal" id="seg-normal-x11"></div>
+                    <div class="track-segment track-abnormal-right" id="seg-right-x11"></div>
+                </div>
+                <div class="visual-thumb" id="thumb-x11"></div>
+            </div>
+            <input type="text" class="number-input" id="x11-num" value="40">
+            <span class="unit">g/L</span>
+        </div>
+        <div class="normal-range"><span class="green-dot"></span>正常范围: 35–55 g/L</div>
+    </div>
+
+    <!-- 3. AST -->
+    <div class="input-group">
+        <label class="input-label">3. AST (天门冬氨酸氨基转移酶)</label>
+        <div class="slider-input-row">
+            <div class="visual-slider">
+                <div class="visual-track" id="track-x13">
+                    <div class="track-segment track-abnormal-left" id="seg-left-x13"></div>
+                    <div class="track-segment track-normal" id="seg-normal-x13"></div>
+                    <div class="track-segment track-abnormal-right" id="seg-right-x13"></div>
+                </div>
+                <div class="visual-thumb" id="thumb-x13"></div>
+            </div>
+            <input type="text" class="number-input" id="x13-num" value="30">
+            <span class="unit">U/L</span>
+        </div>
+        <div class="normal-range"><span class="green-dot"></span>正常范围: 8–40 U/L</div>
+    </div>
+
+    <!-- 4. TBIL -->
+    <div class="input-group">
+        <label class="input-label">4. TBIL (总胆红素)</label>
+        <div class="slider-input-row">
+            <div class="visual-slider">
+                <div class="visual-track" id="track-x14">
+                    <div class="track-segment track-abnormal-left" id="seg-left-x14"></div>
+                    <div class="track-segment track-normal" id="seg-normal-x14"></div>
+                    <div class="track-segment track-abnormal-right" id="seg-right-x14"></div>
+                </div>
+                <div class="visual-thumb" id="thumb-x14"></div>
+            </div>
+            <input type="text" class="number-input" id="x14-num" value="15">
+            <span class="unit">μmol/L</span>
+        </div>
+        <div class="normal-range"><span class="green-dot"></span>正常范围: 3.4–20.5 μmol/L</div>
+    </div>
+
+    <!-- 5. 血钙 -->
+    <div class="input-group">
+        <label class="input-label">5. 血钙 (Blood Calcium)</label>
+        <div class="slider-input-row">
+            <div class="visual-slider">
+                <div class="visual-track" id="track-x16">
+                    <div class="track-segment track-abnormal-left" id="seg-left-x16"></div>
+                    <div class="track-segment track-normal" id="seg-normal-x16"></div>
+                    <div class="track-segment track-abnormal-right" id="seg-right-x16"></div>
+                </div>
+                <div class="visual-thumb" id="thumb-x16"></div>
+            </div>
+            <input type="text" class="number-input" id="x16-num" value="2.2">
+            <span class="unit">mmol/L</span>
+        </div>
+        <div class="normal-range"><span class="green-dot"></span>正常范围: 2.1–2.6 mmol/L</div>
+    </div>
+
+    <!-- 6. 血糖 -->
+    <div class="input-group">
+        <label class="input-label">6. 血糖 (Blood Glucose)</label>
+        <div class="slider-input-row">
+            <div class="visual-slider">
+                <div class="visual-track" id="track-x17">
+                    <div class="track-segment track-abnormal-left" id="seg-left-x17"></div>
+                    <div class="track-segment track-normal" id="seg-normal-x17"></div>
+                    <div class="track-segment track-abnormal-right" id="seg-right-x17"></div>
+                </div>
+                <div class="visual-thumb" id="thumb-x17"></div>
+            </div>
+            <input type="text" class="number-input" id="x17-num" value="5.5">
+            <span class="unit">mmol/L</span>
+        </div>
+        <div class="normal-range"><span class="green-dot"></span>正常范围: 3.9–6.1 mmol/L</div>
+    </div>
+
+    <!-- 结果展示 -->
+    <div class="result-box">
+        <div class="prob-value" id="probability">2.3%</div>
+        <div class="risk-bar">
+            <div class="risk-fill" id="risk-fill"></div>
+        </div>
+        <div class="risk-text" id="risk-level">低风险</div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="buttons">
+        <button class="reset-btn" onclick="resetValues()">重置</button>
+        <button class="copy-btn" onclick="copyResult()">📋 复制结果</button>
+    </div>
+
+    <div class="footer">
+        <p>模型基于 Logistic 回归分析 · 仅供临床参考</p>
+    </div>
+</div>
+
+<script>
+    // ---------- 系数 ----------
+    const coeff = {
+        intercept: 6.3711,
+        x10: 2.5839,
+        x11: -0.1408,
+        x13: 0.0067,
+        x14: 0.0388,
+        x16: -4.5399,
+        x17: 0.5528
+    };
+
+    // 每个指标的范围、正常范围和默认值
+    const fields = [
+        { id: 'x11', inputId: 'x11-num', thumbId: 'thumb-x11', trackId: 'track-x11',
+          segLeftId: 'seg-left-x11', segNormalId: 'seg-normal-x11', segRightId: 'seg-right-x11',
+          min: 20, max: 60, normalMin: 35, normalMax: 55, def: 40 },
+        { id: 'x13', inputId: 'x13-num', thumbId: 'thumb-x13', trackId: 'track-x13',
+          segLeftId: 'seg-left-x13', segNormalId: 'seg-normal-x13', segRightId: 'seg-right-x13',
+          min: 5, max: 300, normalMin: 8, normalMax: 40, def: 30 },
+        { id: 'x14', inputId: 'x14-num', thumbId: 'thumb-x14', trackId: 'track-x14',
+          segLeftId: 'seg-left-x14', segNormalId: 'seg-normal-x14', segRightId: 'seg-right-x14',
+          min: 2, max: 120, normalMin: 3.4, normalMax: 20.5, def: 15 },
+        { id: 'x16', inputId: 'x16-num', thumbId: 'thumb-x16', trackId: 'track-x16',
+          segLeftId: 'seg-left-x16', segNormalId: 'seg-normal-x16', segRightId: 'seg-right-x16',
+          min: 1.0, max: 3.5, normalMin: 2.1, normalMax: 2.6, def: 2.2 },
+        { id: 'x17', inputId: 'x17-num', thumbId: 'thumb-x17', trackId: 'track-x17',
+          segLeftId: 'seg-left-x17', segNormalId: 'seg-normal-x17', segRightId: 'seg-right-x17',
+          min: 2.0, max: 25.0, normalMin: 3.9, normalMax: 6.1, def: 5.5 }
+    ];
+
+    const x10Radios = document.getElementsByName('x10');
+    const probEl      = document.getElementById('probability');
+    const riskLevelEl = document.getElementById('risk-level');
+    const riskFill    = document.getElementById('risk-fill');
+
+    /**
+     * 将数值转换为百分比位置
+     */
+    function valueToPercent(value, min, max) {
+        if (value < min) value = min;
+        if (value > max) value = max;
+        return ((value - min) / (max - min)) * 100;
+    }
+
+    /**
+     * 更新轨道的分段颜色和缩略图位置
+     */
+    function updateTrackAndThumb(field) {
+        const input = document.getElementById(field.inputId);
+        const thumb = document.getElementById(field.thumbId);
+        const segLeft = document.getElementById(field.segLeftId);
+        const segNormal = document.getElementById(field.segNormalId);
+        const segRight = document.getElementById(field.segRightId);
+
+        const value = parseFloat(input.value);
+        if (isNaN(value)) {
+            thumb.style.left = '0%';
+            return;
+        }
+
+        // 缩略图位置
+        const percent = valueToPercent(value, field.min, field.max);
+        thumb.style.left = percent + '%';
+
+        // 正常范围左右边界的百分比位置
+        const normalLeftPct = valueToPercent(field.normalMin, field.min, field.max);
+        const normalRightPct = valueToPercent(field.normalMax, field.min, field.max);
+
+        // 更新三个分段的宽度和位置
+        segLeft.style.cssText = `left: 0%; width: ${normalLeftPct}%; border-radius: 6px 0 0 6px; background: var(--abnormal-gray);`;
+        segNormal.style.cssText = `left: ${normalLeftPct}%; width: ${normalRightPct - normalLeftPct}%; background: var(--normal-green);`;
+        segRight.style.cssText = `left: ${normalRightPct}%; width: ${100 - normalRightPct}%; border-radius: 0 6px 6px 0; background: var(--abnormal-gray);`;
+    }
+
+    /**
+     * 验证并修正输入值
+     */
+    function validateInput(input, min, max) {
+        let val = parseFloat(input.value);
+        
+        if (isNaN(val)) {
+            input.value = min;
+            return min;
+        }
+        
+        if (val < min) val = min;
+        if (val > max) val = max;
+        
+        if (Number.isInteger(min) && Number.isInteger(max)) {
+            val = Math.round(val);
+        } else {
+            val = Math.round(val * 100) / 100;
+        }
+        
+        input.value = val;
+        return val;
+    }
+
+    /**
+     * 计算风险
+     */
+    function calculateRisk() {
+        const x10 = parseInt(document.querySelector('input[name="x10"]:checked').value);
+        
+        const vals = {};
+        fields.forEach(f => {
+            vals[f.id] = parseFloat(document.getElementById(f.inputId).value);
+        });
+
+        if (Object.values(vals).some(isNaN)) return;
+
+        let logOdds = coeff.intercept;
+        logOdds += coeff.x10 * x10;
+        logOdds += coeff.x11 * vals.x11;
+        logOdds += coeff.x13 * vals.x13;
+        logOdds += coeff.x14 * vals.x14;
+        logOdds += coeff.x16 * vals.x16;
+        logOdds += coeff.x17 * vals.x17;
+
+        const prob = 1 / (1 + Math.exp(-logOdds));
+        const pct = (prob * 100).toFixed(1);
+        probEl.textContent = pct + '%';
+
+        let level = '低风险';
+        if (prob >= 0.05 && prob < 0.2) level = '中风险';
+        else if (prob >= 0.2) level = '高风险';
+        riskLevelEl.textContent = level;
+
+        let fillW = prob * 100;
+        if (fillW > 95) fillW = 95;
+        riskFill.style.width = fillW + '%';
+
+        if (prob < 0.05) riskFill.style.background = 'var(--success)';
+        else if (prob < 0.2) riskFill.style.background = 'var(--warning)';
+        else riskFill.style.background = 'var(--danger)';
+    }
+
+    /**
+     * 处理输入变化
+     */
+    function handleInputChange(field) {
+        updateTrackAndThumb(field);
+        const val = parseFloat(document.getElementById(field.inputId).value);
+        if (!isNaN(val) && val >= field.min && val <= field.max) {
+            calculateRisk();
+        }
+    }
+
+    /**
+     * 处理输入完成
+     */
+    function handleInputFinalize(field) {
+        const input = document.getElementById(field.inputId);
+        validateInput(input, field.min, field.max);
+        updateTrackAndThumb(field);
+        calculateRisk();
+    }
+
+    // 为每个字段绑定事件
+    fields.forEach(f => {
+        const input = document.getElementById(f.inputId);
+        
+        input.addEventListener('input', function() {
+            handleInputChange(f);
+        });
+        
+        input.addEventListener('blur', function() {
+            handleInputFinalize(f);
+        });
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                input.blur();
+            }
+        });
+    });
+
+    // radio 监听
+    for (let r of x10Radios) r.addEventListener('change', calculateRisk);
+
+    // ---------- 重置 ----------
+    function resetValues() {
+        document.querySelector('input[name="x10"][value="0"]').checked = true;
+
+        fields.forEach(f => {
+            const input = document.getElementById(f.inputId);
+            input.value = f.def;
+            updateTrackAndThumb(f);
+        });
+        calculateRisk();
+    }
+
+    // ---------- 复制结果 ----------
+    function copyResult() {
+        const x10Label = document.querySelector('input[name="x10"]:checked');
+        const parentLabel = x10Label.closest('.radio-option') || x10Label.parentElement;
+        const x10Text = parentLabel.textContent.trim().replace(/^\s*/, '');
+
+        const lines = [
+            '培门冬酶相关胰腺炎风险评估结果：',
+            `AAP病史: ${x10Text}`,
+            `白蛋白: ${document.getElementById('x11-num').value} g/L`,
+            `AST: ${document.getElementById('x13-num').value} U/L`,
+            `TBIL: ${document.getElementById('x14-num').value} μmol/L`,
+            `血钙: ${document.getElementById('x16-num').value} mmol/L`,
+            `血糖: ${document.getElementById('x17-num').value} mmol/L`,
+            `预测概率: ${probEl.textContent}`,
+            `风险等级: ${riskLevelEl.textContent}`
+        ];
+        const result = lines.join('\n');
+
+        navigator.clipboard.writeText(result)
+            .then(() => alert('✅ 结果已复制到剪贴板！'))
+            .catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = result;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                alert('✅ 结果已复制！');
+            });
+    }
+
+    // 初始化
+    fields.forEach(f => {
+        const input = document.getElementById(f.inputId);
+        input.value = f.def;
+        updateTrackAndThumb(f);
+    });
+    calculateRisk();
+</script>
+</body>
+</html>
